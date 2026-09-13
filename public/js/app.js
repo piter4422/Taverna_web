@@ -60,6 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const videoTrackStatus = document.getElementById('video-track-status');
   const audioTrackStatus = document.getElementById('audio-track-status');
   const viewerSidebarCount = document.getElementById('viewer-sidebar-count');
+  const viewersBadgeCount = document.getElementById('viewers-badge-count');
+  const viewersListEl = document.getElementById('viewers-list');
 
   // Toast Notifier
   const toastEl = document.getElementById('toast');
@@ -233,9 +235,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Atualização em tempo real de quem está assistindo
+  socket.on('viewer-list-update', ({ viewers, count }) => {
+    viewerCountDisplay.textContent = count || 0;
+    viewerSidebarCount.textContent = count || 0;
+    if (viewersBadgeCount) viewersBadgeCount.textContent = count || 0;
+
+    if (!viewersListEl) return;
+    viewersListEl.innerHTML = '';
+
+    if (!viewers || viewers.length === 0) {
+      const emptyLi = document.createElement('li');
+      emptyLi.className = 'empty-viewers-msg';
+      emptyLi.textContent = 'Nenhum amigo na sala ainda.';
+      viewersListEl.appendChild(emptyLi);
+      return;
+    }
+
+    viewers.forEach(v => {
+      const li = document.createElement('li');
+      li.className = 'viewer-item';
+
+      const initial = (v.username && v.username.trim().length > 0) ? v.username.trim().charAt(0).toUpperCase() : '?';
+
+      li.innerHTML = `
+        <div class="viewer-user-info">
+          <div class="viewer-avatar">${initial}</div>
+          <span class="viewer-name">${escapeHtml(v.username)}</span>
+        </div>
+        <span class="viewer-status-dot" title="Assistindo"></span>
+      `;
+      viewersListEl.appendChild(li);
+    });
+  });
+
   socket.on('viewer-count-update', ({ viewerCount }) => {
-    viewerCountDisplay.textContent = viewerCount;
-    viewerSidebarCount.textContent = viewerCount;
+    viewerCountDisplay.textContent = viewerCount || 0;
+    viewerSidebarCount.textContent = viewerCount || 0;
+    if (viewersBadgeCount) viewersBadgeCount.textContent = viewerCount || 0;
   });
 
   socket.on('host-stream-started', () => {

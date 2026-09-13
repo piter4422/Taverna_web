@@ -47,6 +47,19 @@ io.on('connection', (socket) => {
 
     const room = rooms.get(currentRoomId);
 
+    function broadcastViewerList(rId) {
+      if (!rooms.has(rId)) return;
+      const r = rooms.get(rId);
+      const list = Array.from(r.viewers.entries()).map(([id, data]) => ({
+        id,
+        username: data.username
+      }));
+      io.to(rId).emit('viewer-list-update', {
+        viewers: list,
+        count: list.length
+      });
+    }
+
     if (role === 'host') {
       room.hostId = socket.id;
       socket.emit('room-joined', {
@@ -54,6 +67,7 @@ io.on('connection', (socket) => {
         role: 'host',
         viewerCount: room.viewers.size
       });
+      broadcastViewerList(currentRoomId);
       console.log(`[Host Conectado] Sala: ${currentRoomId}, Socket: ${socket.id}`);
     } else {
       // É espectador
@@ -81,10 +95,8 @@ io.on('connection', (socket) => {
         });
       }
 
-      // Atualizar contagem para todos na sala
-      io.to(currentRoomId).emit('viewer-count-update', {
-        viewerCount: room.viewers.size
-      });
+      // Atualizar contagem e lista para todos na sala
+      broadcastViewerList(currentRoomId);
       console.log(`[Espectador Conectado] Sala: ${currentRoomId}, Socket: ${socket.id}`);
     }
   });
@@ -166,8 +178,14 @@ io.on('connection', (socket) => {
           viewerCount: room.viewers.size
         });
       }
-      io.to(currentRoomId).emit('viewer-count-update', {
-        viewerCount: room.viewers.size
+      
+      const list = Array.from(room.viewers.entries()).map(([id, data]) => ({
+        id,
+        username: data.username
+      }));
+      io.to(currentRoomId).emit('viewer-list-update', {
+        viewers: list,
+        count: list.length
       });
       console.log(`[Espectador Saiu] Sala: ${currentRoomId}, Restam: ${room.viewers.size}`);
     }
