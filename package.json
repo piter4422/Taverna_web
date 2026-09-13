@@ -1,0 +1,17 @@
+{
+  "name": "taverna-web",
+  "version": "1.0.0",
+  "description": "Transmissão de tela e aplicativos em tempo real entre amigos",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["webrtc", "screenshare", "streaming", "taverna"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}

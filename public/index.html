@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taverna Web | Transmissão de Telas e Sons em Tempo Real</title>
+  <meta name="description" content="Transmita sua tela, janelas e sons de aplicativos em tempo real para amigos com baixíssima latência.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="glow-bg glow-amber"></div>
+  <div class="glow-bg glow-purple"></div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Application Header -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand" id="brand-logo" role="button" tabindex="0">
+        <div class="brand-icon">🍺</div>
+        <div class="brand-text">
+          <span class="brand-title">TAVERNA<span class="accent">WEB</span></span>
+          <span class="brand-tag">Transmissão P2P</span>
+        </div>
+      </div>
+
+      <div id="room-nav-info" class="room-nav-info hidden">
+        <div class="nav-pill" id="room-code-pill">
+          <span class="pill-label">Sala:</span>
+          <span class="pill-value font-mono" id="current-room-display">------</span>
+          <button class="icon-btn-small" id="btn-copy-code" title="Copiar link de convite">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </button>
+        </div>
+
+        <div class="nav-pill">
+          <span class="pulse-indicator live-pulse hidden" id="live-indicator"></span>
+          <span id="stream-status-text">Aguardando</span>
+        </div>
+
+        <div class="nav-pill">
+          <span class="icon">👥</span>
+          <span id="viewer-count">0</span>
+        </div>
+
+        <button class="btn btn-danger-outline btn-sm" id="btn-leave-room">
+          Sair da Sala
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-container">
+    <!-- VIEW 1: LOBBY (Create / Join Room) -->
+    <section id="lobby-view" class="lobby-view">
+      <div class="hero-section">
+        <div class="badge-hero">
+          <span class="sparkle">✨</span> Transmissão P2P sem Lag e sem Ruído
+        </div>
+        <h1 class="hero-title">
+          Compartilhe sua tela e sons <br>
+          <span class="gradient-text">direto para seus amigos</span>
+        </h1>
+        <p class="hero-subtitle">
+          Escolha entre tela cheia, janelas de jogos ou aplicativos específicos, com transmissão de áudio do sistema em alta fidelidade. Apenas a tela e o som, sem microfone.
+        </p>
+      </div>
+
+      <div class="lobby-grid">
+        <!-- Card 1: Criar Sala (Host) -->
+        <div class="glass-card host-card">
+          <div class="card-header">
+            <div class="card-icon host-icon">👑</div>
+            <div class="card-title-group">
+              <span class="card-subtitle">Vou Transmitir</span>
+              <h2 class="card-title">Criar Nova Taverna</h2>
+            </div>
+          </div>
+          <p class="card-desc">
+            Abra uma mesa para seus amigos. Você poderá escolher qual tela ou aplicativo quer transmitir junto com o som do sistema.
+          </p>
+
+          <div class="audio-tip-banner">
+            <div class="tip-icon">💡</div>
+            <div class="tip-text">
+              <strong>Som dos Jogos & Apps:</strong> Na janela do navegador que se abrirá, basta marcar a opção <em>"Compartilhar áudio do sistema"</em>.
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button class="btn btn-primary btn-block" id="btn-create-room">
+              <span class="btn-icon">⚡</span> Criar Sala & Transmitir
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 2: Entrar em Sala (Viewer) -->
+        <div class="glass-card viewer-card">
+          <div class="card-header">
+            <div class="card-icon viewer-icon">👀</div>
+            <div class="card-title-group">
+              <span class="card-subtitle">Vou Assistir</span>
+              <h2 class="card-title">Entrar em uma Sala</h2>
+            </div>
+          </div>
+          <p class="card-desc">
+            Recebeu um código ou link de um amigo? Entre na sala para assistir à transmissão da tela e som em tempo real.
+          </p>
+
+          <form id="form-join-room" class="join-form">
+            <div class="input-group">
+              <label for="input-room-code">Código da Sala</label>
+              <input type="text" id="input-room-code" placeholder="Ex: TAV-8492" maxlength="12" class="font-mono" required autocomplete="off">
+            </div>
+
+            <div class="input-group">
+              <label for="input-username">Seu Apelido (Opcional)</label>
+              <input type="text" id="input-username" placeholder="Ex: Gandalf" maxlength="20">
+            </div>
+
+            <button type="submit" class="btn btn-secondary btn-block" id="btn-join-room">
+              <span class="btn-icon">🚪</span> Entrar na Taverna
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Feature highlights list -->
+      <div class="features-row">
+        <div class="feature-item">
+          <div class="f-icon">🖥️</div>
+          <div class="f-info">
+            <h3>Telas ou Aplicativos</h3>
+            <p>Escolha compartilhar o monitor inteiro ou apenas a janela de um jogo/programa específico.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="f-icon">🔊</div>
+          <div class="f-info">
+            <h3>Som do Sistema / App</h3>
+            <p>Transmita o áudio cristalino de jogos, vídeos e programas sem misturar seu microfone.</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="f-icon">⚡</div>
+          <div class="f-info">
+            <h3>WebRTC em Tempo Real</h3>
+            <p>Conexão direta P2P com latência praticamente imperceptível para assistir junto.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: STREAM ROOM (Host & Viewer) -->
+    <section id="room-view" class="room-view hidden">
+      <div class="stream-layout">
+        <!-- Main Video Cinema Area -->
+        <div class="video-container" id="video-container">
+          <!-- Video Element -->
+          <video id="stream-video" playsinline autoplay></video>
+
+          <!-- Placeholder when stream is not active -->
+          <div id="video-placeholder" class="video-placeholder">
+            <div class="placeholder-content" id="host-placeholder">
+              <div class="placeholder-icon">📺</div>
+              <h3>Sua Taverna está Pronta</h3>
+              <p>Clique abaixo para selecionar a tela inteira, janela de aplicativo ou aba que deseja transmitir.</p>
+              
+              <div class="audio-notice">
+                <span class="notice-icon">🔔</span>
+                <span><strong>Lembre-se:</strong> Na janela de seleção, marque a caixa <strong>"Compartilhar áudio"</strong> para seus amigos ouvirem o som do jogo/app!</span>
+              </div>
+
+              <button class="btn btn-primary btn-lg" id="btn-start-stream">
+                <span class="btn-icon">🖥️</span> Selecionar Tela & Iniciar
+              </button>
+            </div>
+
+            <div class="placeholder-content hidden" id="viewer-placeholder">
+              <div class="placeholder-icon spinner-icon">⏳</div>
+              <h3>Aguardando Transmissão...</h3>
+              <p>O anfitrião da sala ainda não iniciou o compartilhamento da tela ou pausou o sinal.</p>
+              <div class="ambient-pill">Fique à vontade, o vídeo começará automaticamente assim que a tela for ligada!</div>
+            </div>
+          </div>
+
+          <!-- Click to unmute overlay (browser autoplay policy helper) -->
+          <div id="unmute-overlay" class="unmute-overlay hidden">
+            <button class="btn btn-primary" id="btn-unmute-click">
+              🔊 Clique para Ativar o Áudio da Transmissão
+            </button>
+          </div>
+
+          <!-- Video Controls Overlay Bar -->
+          <div class="video-controls" id="video-controls">
+            <div class="controls-left">
+              <!-- Host Specific controls -->
+              <div id="host-controls" class="control-group hidden">
+                <button class="ctrl-btn" id="btn-change-screen" title="Trocar de Tela ou Aplicativo">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                  <span>Trocar Janela/Tela</span>
+                </button>
+                <button class="ctrl-btn btn-danger-text" id="btn-stop-stream" title="Interromper Transmissão">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                  <span>Parar Tela</span>
+                </button>
+              </div>
+
+              <!-- Viewer Audio Volume controls -->
+              <div id="viewer-controls" class="control-group">
+                <button class="ctrl-btn icon-only" id="btn-toggle-mute" title="Mutar/Desmutar Som">
+                  <span id="mute-icon">🔊</span>
+                </button>
+                <div class="volume-slider-wrapper">
+                  <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" title="Volume">
+                </div>
+              </div>
+
+              <div class="stream-badge-mini" id="resolution-badge">
+                1080p • 60 FPS
+              </div>
+            </div>
+
+            <div class="controls-right">
+              <!-- Reações rápidas -->
+              <div class="reactions-bar">
+                <button class="react-btn" data-emoji="🍺" title="Brinde">🍺</button>
+                <button class="react-btn" data-emoji="🔥" title="Fogo">🔥</button>
+                <button class="react-btn" data-emoji="👏" title="Palmas">👏</button>
+                <button class="react-btn" data-emoji="🎮" title="GG">🎮</button>
+              </div>
+
+              <!-- Modo Teatro -->
+              <button class="ctrl-btn icon-only" id="btn-theatre" title="Modo Teatro">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><rect x="6" y="8" width="12" height="8" rx="1"></rect></svg>
+              </button>
+
+              <!-- Tela Cheia -->
+              <button class="ctrl-btn icon-only" id="btn-fullscreen" title="Tela Cheia">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Floating emoji canvas / container -->
+          <div id="reactions-container" class="reactions-container"></div>
+        </div>
+
+        <!-- Room Sidebar & Quick Info -->
+        <aside class="room-sidebar">
+          <!-- Room Share Info Box -->
+          <div class="sidebar-box share-box">
+            <h3 class="box-title">Convide seus Amigos</h3>
+            <p class="box-desc">Envie este link para qualquer amigo assistir sem precisar instalar nada:</p>
+            <div class="copy-url-group">
+              <input type="text" id="shareable-link-input" readonly class="font-mono">
+              <button class="btn btn-primary btn-sm" id="btn-copy-share-link">
+                Copiar
+              </button>
+            </div>
+          </div>
+
+          <!-- Transmission details -->
+          <div class="sidebar-box details-box">
+            <h3 class="box-title">Detalhes da Transmissão</h3>
+            <ul class="details-list">
+              <li>
+                <span class="detail-label">Papel:</span>
+                <span class="detail-val" id="role-display">Anfitrião</span>
+              </li>
+              <li>
+                <span class="detail-label">Sinal de Vídeo:</span>
+                <span class="detail-val" id="video-track-status">Inativo</span>
+              </li>
+              <li>
+                <span class="detail-label">Sinal de Áudio:</span>
+                <span class="detail-val" id="audio-track-status">Inativo</span>
+              </li>
+              <li>
+                <span class="detail-label">Espectadores:</span>
+                <span class="detail-val font-mono" id="viewer-sidebar-count">0</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Audio tips card -->
+          <div class="sidebar-box tips-box">
+            <h3 class="box-title">Como funciona o Som?</h3>
+            <p class="tips-text">
+              Ao selecionar sua janela ou tela no navegador, você pode transmitir o som de jogos (Steam, emuladores), players de vídeo ou abas do Chrome/Edge.
+            </p>
+            <div class="tip-highlight">
+              💡 <strong>Privacidade:</strong> Seu microfone não é gravado nem transmitido. Apenas os sons gerados pelo seu computador ou janela vão para a Taverna!
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- Socket.io client script -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- WebRTC logic -->
+  <script src="js/webrtc.js"></script>
+  <!-- Application logic -->
+  <script src="js/app.js"></script>
+</body>
+</html>
