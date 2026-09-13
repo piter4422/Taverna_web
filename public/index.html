@@ -163,17 +163,19 @@
         <div class="video-container" id="video-container">
           <!-- Video Element -->
           <video id="stream-video" playsinline autoplay></video>
+          <!-- Dedicated Audio Element for WebRTC audio playback -->
+          <audio id="stream-audio" autoplay playsinline></audio>
 
           <!-- Placeholder when stream is not active -->
           <div id="video-placeholder" class="video-placeholder">
             <div class="placeholder-content" id="host-placeholder">
               <div class="placeholder-icon">📺</div>
               <h3>Sua Taverna está Pronta</h3>
-              <p>Clique abaixo para selecionar a tela inteira, janela de aplicativo ou aba que deseja transmitir.</p>
+              <p>Clique abaixo para selecionar a tela ou aplicativo que deseja transmitir.</p>
               
               <div class="audio-notice">
                 <span class="notice-icon">🔔</span>
-                <span><strong>Lembre-se:</strong> Na janela de seleção, marque a caixa <strong>"Compartilhar áudio"</strong> para seus amigos ouvirem o som do jogo/app!</span>
+                <span><strong>Atenção para o Áudio no Windows:</strong> Escolha <strong>"Tela inteira"</strong> e marque a caixinha <strong>"Compartilhar áudio do sistema"</strong> para transmitir o som de jogos e programas!</span>
               </div>
 
               <button class="btn btn-primary btn-lg" id="btn-start-stream">

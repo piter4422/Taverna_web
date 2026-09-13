@@ -135,12 +135,7 @@ class WebRTCManager {
           width: { ideal: 1920 },
           height: { ideal: 1080 }
         },
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          suppressLocalAudioPlayback: false
-        }
+        audio: true
       };
 
       const stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
@@ -311,17 +306,22 @@ class WebRTCManager {
     this.viewerIceQueue = [];
 
     pc.ontrack = (event) => {
-      console.log(`[WebRTC] Faixa recebida do Host: ${event.track.kind}`);
+      console.log(`[WebRTC] Faixa recebida do Host: ${event.track.kind}`, event.track);
       
-      const stream = (event.streams && event.streams[0]) ? event.streams[0] : new MediaStream([event.track]);
-      this.remoteStream = stream;
+      if (!this.remoteStream) {
+        this.remoteStream = new MediaStream();
+      }
+      if (!this.remoteStream.getTracks().some(t => t.id === event.track.id)) {
+        this.remoteStream.addTrack(event.track);
+      }
 
       this.onStatusChange({
         type: 'remote-track-received',
         stream: this.remoteStream,
+        track: event.track,
         trackKind: event.track.kind,
-        hasAudio: stream.getAudioTracks().length > 0,
-        hasVideo: stream.getVideoTracks().length > 0
+        hasAudio: this.remoteStream.getAudioTracks().length > 0,
+        hasVideo: this.remoteStream.getVideoTracks().length > 0
       });
     };
 

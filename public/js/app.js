@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const roomView = document.getElementById('room-view');
   const videoContainer = document.getElementById('video-container');
   const streamVideo = document.getElementById('stream-video');
+  const streamAudio = document.getElementById('stream-audio');
   const videoPlaceholder = document.getElementById('video-placeholder');
   const hostPlaceholder = document.getElementById('host-placeholder');
   const viewerPlaceholder = document.getElementById('viewer-placeholder');
@@ -129,41 +130,41 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
 
       case 'remote-track-received':
-        streamVideo.srcObject = event.stream;
-        videoPlaceholder.classList.add('hidden');
-        liveIndicator.classList.remove('hidden');
-        streamStatusText.textContent = 'AO VIVO';
-        streamStatusText.style.color = 'var(--color-danger)';
-        videoTrackStatus.textContent = 'Recebendo';
-        videoTrackStatus.style.color = 'var(--color-success)';
+        // Conecta o vídeo ao elemento de vídeo (mantido mudo para não conflitar com o áudio dedicado)
+        if (event.stream.getVideoTracks().length > 0) {
+          streamVideo.srcObject = event.stream;
+          streamVideo.muted = true;
+          streamVideo.play().catch(err => console.warn('[Player] Vídeo play:', err));
+          videoPlaceholder.classList.add('hidden');
+          liveIndicator.classList.remove('hidden');
+          streamStatusText.textContent = 'AO VIVO';
+          streamStatusText.style.color = 'var(--color-danger)';
+          videoTrackStatus.textContent = 'Recebendo';
+          videoTrackStatus.style.color = 'var(--color-success)';
+        }
 
-        const hasAudio = event.hasAudio || (event.stream && event.stream.getAudioTracks().length > 0);
+        const audioTracks = event.stream.getAudioTracks();
+        const hasAudio = audioTracks.length > 0;
         audioTrackStatus.textContent = hasAudio ? 'Recebendo Som' : 'Sem Áudio';
         audioTrackStatus.style.color = hasAudio ? 'var(--color-success)' : 'var(--text-muted)';
 
-        // Inicia a reprodução do vídeo MUTADO para garantir exibição IMEDIATA (sem bloqueio pelo navegador)
-        streamVideo.muted = true;
-        streamVideo.play().then(() => {
-          console.log('[Player] Vídeo reproduzindo perfeitamente.');
-          // Se houver áudio, tenta desmutar
-          if (hasAudio) {
-            streamVideo.muted = false;
-            streamVideo.play().then(() => {
-              muteIcon.textContent = '🔊';
-              unmuteOverlay.classList.add('hidden');
-            }).catch(() => {
-              // Navegador exigiu interação do usuário para áudio
-              streamVideo.muted = true;
-              unmuteOverlay.classList.remove('hidden');
-            });
-          } else {
-            // Se não tem áudio no stream, não exibe botão de áudio desnecessariamente
+        if (hasAudio && streamAudio) {
+          // Utiliza stream exclusivo com a faixa de áudio para saída pura e independente
+          streamAudio.srcObject = new MediaStream(audioTracks);
+          streamAudio.volume = parseFloat(volumeSlider.value) || 1;
+          streamAudio.muted = false;
+
+          streamAudio.play().then(() => {
+            console.log('[Áudio] Som da transmissão tocando perfeitamente!');
             unmuteOverlay.classList.add('hidden');
-          }
-        }).catch(err => {
-          console.warn('[Player] Falha no autoplay inicial:', err);
-          unmuteOverlay.classList.remove('hidden');
-        });
+            muteIcon.textContent = '🔊';
+          }).catch(err => {
+            console.warn('[Áudio] Autoplay com som bloqueado pelo navegador. Clique para liberar som:', err);
+            unmuteOverlay.classList.remove('hidden');
+          });
+        } else {
+          unmuteOverlay.classList.add('hidden');
+        }
         break;
     }
   }
@@ -171,16 +172,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // Desmutar e ativar som pelo botão ou clique
   function unlockAudio() {
     unmuteOverlay.classList.add('hidden');
-    streamVideo.muted = false;
-    streamVideo.play().then(() => {
-      muteIcon.textContent = '🔊';
-      showToast('🔊 Som ativado!');
-    }).catch(err => {
-      console.warn('Erro ao desmutar áudio:', err);
-      // Fallback: mantém vídeo rodando mutado
-      streamVideo.muted = true;
-      streamVideo.play();
-    });
+    if (streamAudio && streamAudio.srcObject) {
+      streamAudio.muted = false;
+      streamAudio.volume = parseFloat(volumeSlider.value) || 1;
+      streamAudio.play().then(() => {
+        muteIcon.textContent = '🔊';
+        showToast('🔊 Som ativado com sucesso!');
+      }).catch(err => {
+        console.warn('Erro ao tocar áudio:', err);
+      });
+    }
   }
 
   btnUnmuteClick.addEventListener('click', (e) => {
@@ -189,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   videoContainer.addEventListener('click', (e) => {
-    if (!unmuteOverlay.classList.contains('hidden') || streamVideo.muted) {
+    if (!unmuteOverlay.classList.contains('hidden')) {
       if (!e.target.closest('.video-controls') && !e.target.closest('.modal')) {
         unlockAudio();
       }
@@ -355,7 +356,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // 3. Compartilhar Tela / Aplicativo
   btnStartStream.addEventListener('click', async () => {
     try {
-      await webrtc.startScreenCapture();
+      const stream = await webrtc.startScreenCapture();
+      if (stream) {
+        const hasAudio = stream.getAudioTracks().length > 0;
+        if (!hasAudio) {
+          alert('⚠️ ATENÇÃO: Nenhum áudio foi detectado!\n\nNo Windows, para seus amigos ouvirem o som do jogo/app:\n1. Clique em "Trocar Janela/Tela"\n2. Selecione a aba "Tela inteira"\n3. Marque a caixinha "Compartilhar áudio do sistema" no canto inferior esquerdo.');
+        }
+      }
     } catch (err) {
       if (err.name !== 'NotAllowedError') {
         alert('Não foi possível iniciar o compartilhamento: ' + err.message);
@@ -395,22 +402,24 @@ document.addEventListener('DOMContentLoaded', () => {
   // 7. Controle de Volume e Áudio (Viewer)
   volumeSlider.addEventListener('input', (e) => {
     const val = parseFloat(e.target.value);
-    streamVideo.volume = val;
+    if (streamAudio) streamAudio.volume = val;
+    if (streamVideo) streamVideo.volume = val;
     if (val === 0) {
-      streamVideo.muted = true;
+      if (streamAudio) streamAudio.muted = true;
       muteIcon.textContent = '🔇';
     } else {
-      streamVideo.muted = false;
+      if (streamAudio) streamAudio.muted = false;
       muteIcon.textContent = val > 0.5 ? '🔊' : '🔉';
     }
   });
 
   btnToggleMute.addEventListener('click', () => {
-    streamVideo.muted = !streamVideo.muted;
-    if (streamVideo.muted) {
+    if (!streamAudio) return;
+    streamAudio.muted = !streamAudio.muted;
+    if (streamAudio.muted) {
       muteIcon.textContent = '🔇';
     } else {
-      const val = streamVideo.volume;
+      const val = streamAudio.volume;
       muteIcon.textContent = val > 0.5 ? '🔊' : '🔉';
     }
   });
