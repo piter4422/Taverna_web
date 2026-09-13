@@ -67,6 +67,11 @@ io.on('connection', (socket) => {
         viewerCount: room.viewers.size
       });
 
+      // Se o host já estiver transmitindo, avisa o espectador para preparar o player
+      if (room.isStreaming) {
+        socket.emit('host-stream-started');
+      }
+
       // Notificar o Host que um novo espectador entrou
       if (room.hostId) {
         io.to(room.hostId).emit('viewer-joined', {

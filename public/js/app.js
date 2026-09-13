@@ -4,7 +4,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Conexão com Socket.io
   const socket = io();
 
   // Estado da Aplicação
@@ -75,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, duration);
   }
 
-  // Gerador de Código de Sala Curto e Amigável (ex: TAV-4A8B)
+  // Gerador de Código de Sala (ex: TAV-4A8B)
   function generateRoomCode() {
     const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
     let code = '';
@@ -93,9 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'stream-started':
       case 'stream-switched':
         streamVideo.srcObject = event.stream;
-        // Se for Host, mantém mudo localmente para não dar eco nos próprios alto-falantes
+        // Host mantém mutado localmente para evitar eco
         streamVideo.muted = (userRole === 'host');
-        streamVideo.play().catch(e => console.log('Autoplay:', e));
+        streamVideo.play().catch(e => console.log('Autoplay local:', e));
 
         videoPlaceholder.classList.add('hidden');
         liveIndicator.classList.remove('hidden');
@@ -109,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (event.hasAudio) {
           showToast('🔊 Transmissão iniciada com áudio do sistema/aplicativo!');
         } else {
-          showToast('⚠️ Tela transmitida, mas você não selecionou a opção de áudio.');
+          showToast('⚠️ Tela transmitida. (Lembre-se de marcar áudio na janela se quiser som!)');
         }
         break;
 
@@ -123,12 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
         videoTrackStatus.style.color = 'var(--text-muted)';
         audioTrackStatus.textContent = 'Inativo';
         audioTrackStatus.style.color = 'var(--text-muted)';
+        unmuteOverlay.classList.add('hidden');
         showToast('Transmissão de tela interrompida.');
         break;
 
       case 'remote-track-received':
         streamVideo.srcObject = event.stream;
-        streamVideo.muted = false; // Espectador ouve o áudio
         videoPlaceholder.classList.add('hidden');
         liveIndicator.classList.remove('hidden');
         streamStatusText.textContent = 'AO VIVO';
@@ -136,21 +135,70 @@ document.addEventListener('DOMContentLoaded', () => {
         videoTrackStatus.textContent = 'Recebendo';
         videoTrackStatus.style.color = 'var(--color-success)';
 
-        // Tentar reproduzir com som
-        streamVideo.play().catch(err => {
-          console.warn('Autoplay bloqueado pelo navegador. Exibindo botão de clique para ativar áudio:', err);
+        const hasAudio = event.hasAudio || (event.stream && event.stream.getAudioTracks().length > 0);
+        audioTrackStatus.textContent = hasAudio ? 'Recebendo Som' : 'Sem Áudio';
+        audioTrackStatus.style.color = hasAudio ? 'var(--color-success)' : 'var(--text-muted)';
+
+        // Inicia a reprodução do vídeo MUTADO para garantir exibição IMEDIATA (sem bloqueio pelo navegador)
+        streamVideo.muted = true;
+        streamVideo.play().then(() => {
+          console.log('[Player] Vídeo reproduzindo perfeitamente.');
+          // Se houver áudio, tenta desmutar
+          if (hasAudio) {
+            streamVideo.muted = false;
+            streamVideo.play().then(() => {
+              muteIcon.textContent = '🔊';
+              unmuteOverlay.classList.add('hidden');
+            }).catch(() => {
+              // Navegador exigiu interação do usuário para áudio
+              streamVideo.muted = true;
+              unmuteOverlay.classList.remove('hidden');
+            });
+          } else {
+            // Se não tem áudio no stream, não exibe botão de áudio desnecessariamente
+            unmuteOverlay.classList.add('hidden');
+          }
+        }).catch(err => {
+          console.warn('[Player] Falha no autoplay inicial:', err);
           unmuteOverlay.classList.remove('hidden');
         });
         break;
     }
   }
 
+  // Desmutar e ativar som pelo botão ou clique
+  function unlockAudio() {
+    unmuteOverlay.classList.add('hidden');
+    streamVideo.muted = false;
+    streamVideo.play().then(() => {
+      muteIcon.textContent = '🔊';
+      showToast('🔊 Som ativado!');
+    }).catch(err => {
+      console.warn('Erro ao desmutar áudio:', err);
+      // Fallback: mantém vídeo rodando mutado
+      streamVideo.muted = true;
+      streamVideo.play();
+    });
+  }
+
+  btnUnmuteClick.addEventListener('click', (e) => {
+    e.stopPropagation();
+    unlockAudio();
+  });
+
+  videoContainer.addEventListener('click', (e) => {
+    if (!unmuteOverlay.classList.contains('hidden') || streamVideo.muted) {
+      if (!e.target.closest('.video-controls') && !e.target.closest('.modal')) {
+        unlockAudio();
+      }
+    }
+  });
+
   // Socket: Eventos de Sala
   socket.on('room-joined', ({ roomId, role, hostOnline, isStreaming, viewerCount }) => {
     currentRoomId = roomId;
     userRole = role;
 
-    // Atualizar UI
     lobbyView.classList.add('hidden');
     roomView.classList.remove('hidden');
     roomNavInfo.classList.remove('hidden');
@@ -203,6 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     streamStatusText.textContent = 'Transmissão Pausada';
     videoTrackStatus.textContent = 'Aguardando';
     audioTrackStatus.textContent = 'Inativo';
+    unmuteOverlay.classList.add('hidden');
     showToast('O Anfitrião pausou o compartilhamento.');
   });
 
@@ -211,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     videoPlaceholder.classList.remove('hidden');
     liveIndicator.classList.add('hidden');
     streamStatusText.textContent = 'Anfitrião Saiu';
+    unmuteOverlay.classList.add('hidden');
     showToast('O Anfitrião saiu da Taverna.');
   });
 
@@ -224,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.createElement('div');
     el.className = 'floating-reaction';
     el.textContent = emoji;
-    // Posição horizontal aleatória no container de vídeo
     const leftPercent = Math.floor(Math.random() * 70) + 15;
     el.style.left = `${leftPercent}%`;
     reactionsContainer.appendChild(el);
@@ -322,16 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const val = streamVideo.volume;
       muteIcon.textContent = val > 0.5 ? '🔊' : '🔉';
     }
-  });
-
-  // Botão de desmutar caso bloqueado por autoplay
-  btnUnmuteClick.addEventListener('click', () => {
-    streamVideo.muted = false;
-    streamVideo.play().then(() => {
-      unmuteOverlay.classList.add('hidden');
-      muteIcon.textContent = '🔊';
-      showToast('🔊 Som ativado!');
-    }).catch(err => console.error(err));
   });
 
   // 8. Reações Rápidas
